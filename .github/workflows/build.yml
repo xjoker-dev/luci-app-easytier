@@ -1,7 +1,6 @@
 name: Build-OpenWrt-EasyTier
 
 on:
-  push:
   workflow_dispatch:
     inputs:
       tag:
