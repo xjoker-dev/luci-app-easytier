@@ -8,6 +8,14 @@ on:
         required: false
         default: ''
         type: string
+      runner_type:
+        description: '选择运行环境'
+        required: true
+        default: 'self-hosted'
+        type: choice
+        options:
+          - 'self-hosted'
+          - 'ubuntu-latest'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -49,9 +57,10 @@ permissions:
 jobs:
   prepare:
     name: Prepare build matrix
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ github.event.inputs.runner_type == 'ubuntu-latest' && 'ubuntu-latest' || fromJson('["self-hosted", "linux", "x64"]') }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      runner_type: ${{ github.event.inputs.runner_type }}
     steps:
       - name: Set up build matrix
         id: set-matrix
@@ -92,7 +101,7 @@ jobs:
   build:
     name: Build ${{ matrix.arch }}-${{ matrix.sdk }}
     needs: prepare
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ${{ needs.prepare.outputs.runner_type == 'ubuntu-latest' && 'ubuntu-latest' || fromJson('["self-hosted", "linux", "x64"]') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
