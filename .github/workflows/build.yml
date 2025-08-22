@@ -12,49 +12,133 @@ on:
         description: '请填写发布的说明'
         required: false
         default: ''
+      arch_selection:
+        description: '选择要构建的架构（用逗号分隔，留空构建全部）'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''  # 全部构建
+          - 'aarch64_cortex-a53'
+          - 'aarch64_cortex-a72'
+          - 'aarch64_generic'
+          - 'arm_arm1176jzf-s_vfp'
+          - 'arm_arm926ej-s'
+          - 'arm_cortex-a15_neon-vfpv4'
+          - 'arm_cortex-a5_vfpv4'
+          - 'arm_cortex-a7'
+          - 'arm_cortex-a7_neon-vfpv4'
+          - 'arm_cortex-a8_vfpv3'
+          - 'arm_cortex-a9'
+          - 'arm_cortex-a9_neon'
+          - 'arm_cortex-a9_vfpv3-d16'
+          - 'arm_fa526'
+          - 'arm_mpcore'
+          - 'arm_xscale'
+          - 'mips_24kc'
+          - 'mips_4kec'
+          - 'mips_mips32'
+          - 'mipsel_24kc'
+          - 'mipsel_24kc_24kf'
+          - 'mipsel_74kc'
+          - 'mipsel_mips32'
+          - 'x86_64'
+      custom_arch:
+        description: '自定义架构列表（优先级高于选择框，用逗号分隔）'
+        required: false
+        default: ''
+        type: string
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 env:
   TAG: "${{ github.event.inputs.tag }}"
   TZ: Asia/Shanghai
+  # 默认架构列表
+  DEFAULT_ARCHS: |
+    aarch64_cortex-a53
+    aarch64_cortex-a72
+    aarch64_generic
+    arm_arm1176jzf-s_vfp
+    arm_arm926ej-s
+    arm_cortex-a15_neon-vfpv4
+    arm_cortex-a5_vfpv4
+    arm_cortex-a7
+    arm_cortex-a7_neon-vfpv4
+    arm_cortex-a8_vfpv3
+    arm_cortex-a9
+    arm_cortex-a9_neon
+    arm_cortex-a9_vfpv3-d16
+    arm_fa526
+    arm_mpcore
+    arm_xscale
+    mips_24kc
+    mips_4kec
+    mips_mips32
+    mipsel_24kc
+    mipsel_24kc_24kf
+    mipsel_74kc
+    mipsel_mips32
+    x86_64
+
 permissions:
   contents: write
+
 jobs:
+  prepare:
+    name: Prepare build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set up build matrix
+        id: set-matrix
+        run: |
+          # 处理架构选择
+          if [ -n "${{ github.event.inputs.custom_arch }}" ]; then
+            # 使用自定义架构列表
+            ARCHS="${{ github.event.inputs.custom_arch }}"
+            # 将逗号分隔转换为空格分隔
+            ARCHS="${ARCHS//,/ }"
+          elif [ -n "${{ github.event.inputs.arch_selection }}" ]; then
+            # 使用单选架构
+            ARCHS="${{ github.event.inputs.arch_selection }}"
+          else
+            # 使用默认的全部架构
+            ARCHS="${DEFAULT_ARCHS}"
+          fi
+          
+          # 构建JSON矩阵
+          echo "Selected architectures: $ARCHS"
+          
+          # 创建JSON数组
+          JSON_ARCHS="["
+          FIRST=true
+          for arch in $ARCHS; do
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              JSON_ARCHS+=","
+            fi
+            JSON_ARCHS+="\"$arch\""
+          done
+          JSON_ARCHS+="]"
+          
+          # 创建完整的矩阵JSON
+          MATRIX_JSON="{\"arch\":$JSON_ARCHS,\"sdk\":[\"openwrt-22.03\",\"SNAPSHOT\"]}"
+          
+          echo "Matrix JSON: $MATRIX_JSON"
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+
   build:
     name: Build ${{ matrix.arch }}-${{ matrix.sdk }}
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        arch:
-          - aarch64_cortex-a53
-          - aarch64_cortex-a72
-          - aarch64_generic
-          - arm_arm1176jzf-s_vfp
-          - arm_arm926ej-s
-          - arm_cortex-a15_neon-vfpv4
-          - arm_cortex-a5_vfpv4
-          - arm_cortex-a7
-          - arm_cortex-a7_neon-vfpv4
-          - arm_cortex-a8_vfpv3
-          - arm_cortex-a9
-          - arm_cortex-a9_neon
-          - arm_cortex-a9_vfpv3-d16
-          - arm_fa526
-          - arm_mpcore
-          - arm_xscale
-          - mips_24kc
-          - mips_4kec
-          - mips_mips32
-          - mipsel_24kc
-          - mipsel_24kc_24kf
-          - mipsel_74kc
-          - mipsel_mips32
-          - x86_64
-        sdk:
-          - openwrt-22.03
-          - SNAPSHOT
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -97,4 +181,3 @@ jobs:
            
             tag_name: ${{ env.TAG }}
             files: EasyTier-${{ matrix.arch }}-${{ matrix.sdk }}.zip
- 
