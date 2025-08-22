@@ -3,47 +3,8 @@ name: Build-OpenWrt-EasyTier
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: '请填写发布Releases的版本号（留空不发布）'
-        required: false
-        default: ''
-      text:
-        description: '请填写发布的说明'
-        required: false
-        default: ''
       arch_selection:
-        description: '选择要构建的架构（用逗号分隔，留空构建全部）'
-        required: false
-        default: ''
-        type: choice
-        options:
-          - ''  # 全部构建
-          - 'aarch64_cortex-a53'
-          - 'aarch64_cortex-a72'
-          - 'aarch64_generic'
-          - 'arm_arm1176jzf-s_vfp'
-          - 'arm_arm926ej-s'
-          - 'arm_cortex-a15_neon-vfpv4'
-          - 'arm_cortex-a5_vfpv4'
-          - 'arm_cortex-a7'
-          - 'arm_cortex-a7_neon-vfpv4'
-          - 'arm_cortex-a8_vfpv3'
-          - 'arm_cortex-a9'
-          - 'arm_cortex-a9_neon'
-          - 'arm_cortex-a9_vfpv3-d16'
-          - 'arm_fa526'
-          - 'arm_mpcore'
-          - 'arm_xscale'
-          - 'mips_24kc'
-          - 'mips_4kec'
-          - 'mips_mips32'
-          - 'mipsel_24kc'
-          - 'mipsel_24kc_24kf'
-          - 'mipsel_74kc'
-          - 'mipsel_mips32'
-          - 'x86_64'
-      custom_arch:
-        description: '自定义架构列表（优先级高于选择框，用逗号分隔）'
+        description: '要构建的架构（用逗号分隔，留空构建全部）'
         required: false
         default: ''
         type: string
@@ -96,14 +57,11 @@ jobs:
         id: set-matrix
         run: |
           # 处理架构选择
-          if [ -n "${{ github.event.inputs.custom_arch }}" ]; then
-            # 使用自定义架构列表
-            ARCHS="${{ github.event.inputs.custom_arch }}"
+          if [ -n "${{ github.event.inputs.arch_selection }}" ]; then
+            # 使用指定的架构列表
+            ARCHS="${{ github.event.inputs.arch_selection }}"
             # 将逗号分隔转换为空格分隔
             ARCHS="${ARCHS//,/ }"
-          elif [ -n "${{ github.event.inputs.arch_selection }}" ]; then
-            # 使用单选架构
-            ARCHS="${{ github.event.inputs.arch_selection }}"
           else
             # 使用默认的全部架构
             ARCHS="${DEFAULT_ARCHS}"
